@@ -115,7 +115,7 @@ th{background:var(--th-bg);text-align:left;}
     </div>
     <div class="exp-btn-row">
       <button class="operate holiday" onclick="setHoliday()">放假</button>
-      <button class="operate normal" onclick="cancelHoliday()">恢复正常</button>
+      <button class="operate normal" onclick="cancelHoliday()">出车精神</button>
     </div>
   </div>
 </div>
@@ -344,6 +344,7 @@ function renderList(){
     btn.className='operate';
     btn.textContent='删除';
     btn.addEventListener('click',()=>{
+      if(!confirm('确定删除第'+(idx+1)+'条记录？')) return;
       records.splice(idx,1);
       saveDayData();
       calc();
