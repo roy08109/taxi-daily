@@ -54,13 +54,23 @@ th{background:var(--th-bg);text-align:left;}
 .day-bar{display:flex;align-items:center;gap:10px;margin:8px 0 15px;font-size:1.1em;font-weight:bold;}
 #darkToggle{background:var(--card-bg);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:1em;padding:4px 12px;margin-left:auto;color:var(--text);line-height:1.5;box-shadow:0 1px 3px rgba(0,0,0,.1);transition:all .2s;white-space:nowrap;}
 #darkToggle:hover{box-shadow:0 2px 6px rgba(0,0,0,.15);}
+#monthBtn{background:var(--op-bg);color:#fff;border:none;border-radius:20px;cursor:pointer;font-size:.9em;padding:4px 14px;line-height:1.5;white-space:nowrap;}
+/* 月份总结弹窗 */
+.overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);z-index:999;justify-content:center;align-items:center;}
+.overlay.show{display:flex;}
+.modal{background:var(--card-bg);color:var(--text);border-radius:14px;padding:24px;width:90%;max-width:400px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,.3);}
+.modal h3{margin-bottom:12px;font-size:1.2em;}
+.modal table{width:100%;border-collapse:collapse;margin:10px 0;}
+.modal td,.modal th{border:1px solid var(--border);padding:7px 10px;text-align:right;}
+.modal th{background:var(--th-bg);text-align:left;}
+.modal-close{display:block;margin:14px auto 0;background:var(--op-bg);color:#fff;border:none;border-radius:20px;padding:6px 24px;cursor:pointer;font-size:1em;}
 </style>
 </head>
 <body>
 <div class="day-bar">
   <span>选择日期：</span>
   <input type="date" id="datePicker">
-  <span id="showDay"></span>
+  <button id="monthBtn" onclick="showMonthSummary()">📊 月结</button>
   <button id="darkToggle" onclick="toggleDark()" title="切换深色模式">浅色</button>
 </div>
 
@@ -146,6 +156,14 @@ th{background:var(--th-bg);text-align:left;}
   </table>
 </div>
 
+<div class="overlay" id="monthOverlay" onclick="if(event.target===this)closeMonthSummary()">
+  <div class="modal">
+    <h3 id="monthTitle">月份总结</h3>
+    <div id="monthBody"></div>
+    <button class="modal-close" onclick="closeMonthSummary()">关闭</button>
+  </div>
+</div>
+
 <script>
 let records = [];
 let currentDateKey = '';
@@ -175,14 +193,6 @@ function toggleDark(){
   document.getElementById('darkToggle').textContent = darkMode ? '浅色' : '深色';
   document.getElementById('themeMeta').content = darkMode ? '#121212' : '#4285f4';
   try{ localStorage.setItem('taxiDarkMode', darkMode ? '1' : '0'); }catch(e){}
-}
-
-function formatShowDay(dStr){
-  const d=new Date(dStr);
-  const y=String(d.getFullYear()).slice(-2);
-  const m=d.getMonth()+1;
-  const dy=d.getDate();
-  return `${y}年${m}月${dy}日`;
 }
 
 function formatTimeOnly(ts){
@@ -239,7 +249,6 @@ function loadDayData(dateKey){
     document.getElementById('km').value = normalKm;
     document.getElementById('oilPrice').value = normalOilPrice;
   }
-  document.getElementById('showDay').textContent = formatShowDay(dateKey);
   calc();
   renderList();
 }
@@ -343,6 +352,115 @@ function renderList(){
     tr.lastElementChild.appendChild(btn);
     wrap.appendChild(tr);
   });
+}
+
+function showMonthSummary(){
+  const datePicker = document.getElementById('datePicker');
+  const d = new Date(datePicker.value);
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1;
+  document.getElementById('monthTitle').textContent = `${year}年${month}月 总结`;
+
+  const daysInMonth = new Date(year, month, 0).getDate();
+  let totalEPay=0, totalHKD=0, totalMOP=0, totalCNY=0;
+  let totalRent=0, totalOil=0, totalKm=0, dayCount=0, holidayCount=0, recordCount=0;
+
+  // 三段结：1-10, 11-20, 21-月尾
+  const periods = [
+    {label:'上旬(1-10日)', start:1, end:10, EPay:0, HKD:0, MOP:0, CNY:0, rent:0, oil:0, km:0, days:0, holi:0, recs:0},
+    {label:'中旬(11-20日)', start:11, end:20, EPay:0, HKD:0, MOP:0, CNY:0, rent:0, oil:0, km:0, days:0, holi:0, recs:0},
+    {label:'下旬(21-'+daysInMonth+'日)', start:21, end:daysInMonth, EPay:0, HKD:0, MOP:0, CNY:0, rent:0, oil:0, km:0, days:0, holi:0, recs:0}
+  ];
+
+  for(let day=1; day<=daysInMonth; day++){
+    const dk = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const key = `taxiDay_${dk}`;
+    const saved = localStorage.getItem(key);
+    if(!saved) continue;
+    let dd;
+    try{ dd = JSON.parse(saved); }catch(e){ continue; }
+    const recs = Array.isArray(dd.records) ? dd.records : [];
+    if(recs.length === 0 && !dd.isHoliday && !dd.rent && !dd.km) continue;
+    dayCount++;
+    if(dd.isHoliday) holidayCount++;
+    recordCount += recs.length;
+    recs.forEach(r => {
+      if(r.type === '电子支付') totalEPay += r.amount;
+      else if(r.type === '港币现金') totalHKD += r.amount;
+      else if(r.type === '葡币') totalMOP += r.amount;
+      else if(r.type === '人民币') totalCNY += r.amount;
+    });
+    totalRent += dd.rent || 0;
+    totalKm += dd.km || 0;
+    totalOil += Math.round((dd.km||0) * (dd.oilPrice||0));
+
+    // 累加到对应时段
+    const pIdx = day<=10 ? 0 : day<=20 ? 1 : 2;
+    const p = periods[pIdx];
+    recs.forEach(r => {
+      if(r.type === '电子支付') p.EPay += r.amount;
+      else if(r.type === '港币现金') p.HKD += r.amount;
+      else if(r.type === '葡币') p.MOP += r.amount;
+      else if(r.type === '人民币') p.CNY += r.amount;
+    });
+    p.rent += dd.rent || 0;
+    p.km += dd.km || 0;
+    p.oil += Math.round((dd.km||0) * (dd.oilPrice||0));
+    p.days++;
+    if(dd.isHoliday) p.holi++;
+    p.recs += recs.length;
+  }
+
+  const totalIncome = totalEPay + totalHKD + totalMOP + totalCNY;
+  const totalCost = totalRent + totalOil;
+  const profit = totalIncome - totalCost;
+  const workDays = dayCount - holidayCount;
+  const avgIncome = workDays > 0 ? Math.round(totalIncome / workDays) : 0;
+  const avgProfit = workDays > 0 ? Math.round(profit / workDays) : 0;
+
+  // 生成三段表格 HTML（仅显示租金）
+  let periodHtml = '';
+  periods.forEach((p, i) => {
+    const pWork = p.days - p.holi;
+    periodHtml += `
+      <div style="margin-top:${i===0?'16px':'10px'};font-size:.95em;">
+        <strong>${p.label}</strong>
+        <table>
+          <tr><th class="type-cell">项目</th><th>金额</th></tr>
+          <tr><td class="type-cell">出车/放假</td><td>${pWork}天 / ${p.holi}天</td></tr>
+          <tr><td class="type-cell">租金(葡币)</td><td>${p.rent}</td></tr>
+        </table>
+      </div>`;
+  });
+
+  document.getElementById('monthBody').innerHTML = `
+    <table>
+      <tr><th class="type-cell">项目</th><th>金额</th></tr>
+      <tr><td class="type-cell">出车天数</td><td>${workDays} 天</td></tr>
+      <tr><td class="type-cell">放假天数</td><td>${holidayCount} 天</td></tr>
+      <tr><td class="type-cell">总收款笔数</td><td>${recordCount} 笔</td></tr>
+      <tr><td class="type-cell">电子支付</td><td>${totalEPay}</td></tr>
+      <tr><td class="type-cell">港币现金</td><td>${totalHKD}</td></tr>
+      <tr><td class="type-cell">葡币</td><td>${totalMOP}</td></tr>
+      <tr><td class="type-cell">人民币</td><td>${totalCNY}</td></tr>
+      <tr><td class="type-cell"><strong>总收入</strong></td><td>${totalIncome}</td></tr>
+      <tr><td class="type-cell">总租金(葡币)</td><td>${totalRent}</td></tr>
+      <tr><td class="type-cell">总油费</td><td>${totalOil}</td></tr>
+      <tr><td class="type-cell">总行驶公里</td><td>${Math.round(totalKm)} km</td></tr>
+      <tr><td class="type-cell"><strong>总支出</strong></td><td>${totalCost}</td></tr>
+      <tr><td class="type-cell"><strong>当月盈亏</strong></td>
+        <td class="${profit>=0?'positive':'negative'}">${profit}</td>
+      </tr>
+      <tr><td class="type-cell">日均收入(出车日)</td><td>${avgIncome}</td></tr>
+      <tr><td class="type-cell">日均盈利(出车日)</td><td class="${avgProfit>=0?'positive':'negative'}">${avgProfit}</td></tr>
+    </table>
+    ${periodHtml}
+  `;
+  document.getElementById('monthOverlay').classList.add('show');
+}
+
+function closeMonthSummary(){
+  document.getElementById('monthOverlay').classList.remove('show');
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
