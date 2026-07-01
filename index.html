@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>收支记账</title>
+
+<!-- PWA Manifest -->
+<link rel="manifest" href="manifest.json">
+
+<!-- iOS PWA 支持 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="记账">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<!-- 主题色 -->
+<meta name="theme-color" content="#4285f4">
+
+<style>
+*{box-sizing:border-box;font-family:Arial, sans-serif;margin:0;padding:0;}
+body{padding:15px;max-width:600px;margin:0 auto;}
+.card{border:1px solid #ccc;padding:15px;margin:10px 0;border-radius:6px;}
+/* 新增收款强制单行 */
+.add-row{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:nowrap;
+}
+.add-row select{
+  flex-shrink:1;
+  min-width:60px;
+  max-width:90px;
+  padding:5px 6px;
+}
+#amount{
+  width:70px;
+  flex-shrink:0;
+  text-align:right;
+  padding:5px 4px;
+}
+.add-row button{
+  flex-shrink:0;
+  padding:5px 8px;
+}
+/* 支出行样式 */
+.exp-row{display:flex;align-items:center;justify-content:space-between;margin:4px 0;gap:8px;}
+.exp-row input{width:90px;text-align:right;padding:6px;margin:0;border:1px solid #ccc;border-radius:4px;}
+.exp-btn-row{margin-top:8px;text-align:right;display:flex;gap:6px;justify-content:flex-end;}
+/* 折叠相关 */
+.exp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.exp-content{transition: all 0.2s ease;}
+.hidden{display:none;}
+
+table{width:100%;border-collapse:collapse;margin:10px 0;}
+td,th{border:1px solid #999;padding:8px;text-align:right;}
+th{background:#f0f0f0;text-align:left;}
+.type-cell{text-align:left;}
+.time-text{text-align:left;color:#666;font-size:0.85em;}
+.positive{color:green;font-weight:bold;}
+.negative{color:red;font-weight:bold;}
+.operate{background:#4285f4;color:white;border:none;border-radius:4px;cursor:pointer;width:auto;margin:0 2px;padding:5px 8px;}
+.holiday{background:#ff9800;}
+.normal{background:#2ecc71;}
+.day-bar{display:flex;align-items:center;gap:10px;margin:8px 0 15px;font-size:1.1em;font-weight:bold;}
+</style>
+</head>
+<body>
+<div class="day-bar">
+  <span>选择日期：</span>
+  <input type="date" id="datePicker">
+  <span id="showDay"></span>
+</div>
+
+<div class="card">
+  <h3>新增收款</h3>
+  <div class="add-row">
+    <select id="source">
+      <option value="街客">街客</option>
+      <option value="电召">电召</option>
+      <option value="高德">高德</option>
+      <option value="Uber">Uber</option>
+      <option value="微信群单">微信群单</option>
+    </select>
+    <select id="type">
+      <option value="电子支付">电子支付</option>
+      <option value="港币现金">港币现金</option>
+      <option value="葡币">葡币</option>
+      <option value="人民币">人民币</option>
+    </select>
+    <input type="number" id="amount" placeholder="金额" step="1">
+    <button class="operate" onclick="addRecord()">添加</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="exp-header">
+    <h3>支出设置</h3>
+    <button class="operate" id="foldExpBtn" onclick="toggleExp()">展开</button>
+  </div>
+  <!-- 默认加hidden类，一加载就折叠隐藏 -->
+  <div class="exp-content hidden" id="expContent">
+    <div class="exp-row">
+      <label>日租金(葡币)：</label>
+      <input type="number" id="rent" value="550">
+    </div>
+    <div class="exp-row">
+      <label>行驶公里：</label>
+      <input type="number" id="km" value="0">
+    </div>
+    <div class="exp-row">
+      <label>油费单价：</label>
+      <input type="number" id="oilPrice" value="1.1">
+    </div>
+    <div class="exp-btn-row">
+      <button class="operate holiday" onclick="setHoliday()">放假</button>
+      <button class="operate normal" onclick="cancelHoliday()">恢复正常</button>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>收支汇总</h3>
+  <table>
+    <tr><th class="type-cell">项目</th><th>金额</th></tr>
+    <tr><td class="type-cell">电子支付</td><td id="ePay">0</td></tr>
+    <tr><td class="type-cell">港币现金</td><td id="hkd">0</td></tr>
+    <tr><td class="type-cell">葡币</td><td id="mop">0</td></tr>
+    <tr><td class="type-cell">人民币</td><td id="cny">0</td></tr>
+    <tr><td class="type-cell"><strong>总收入</strong></td><td id="totalIncome">0</td></tr>
+    <tr><td class="type-cell">租金支出</td><td id="rentShow">550</td></tr>
+    <tr><td class="type-cell">油费</td><td id="oilCost">0</td></tr>
+    <tr><td class="type-cell"><strong>总支出</strong></td><td id="totalCost">550</td></tr>
+    <tr>
+      <td class="type-cell"><strong>当日盈亏</strong></td>
+      <td id="profit">0</td>
+    </tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3>当日收款明细（仅显示时分）</h3>
+  <table id="listTable">
+    <thead>
+      <tr>
+        <th class="type-cell">单号</th>
+        <th class="type-cell">来源</th>
+        <th class="type-cell">支付方式</th>
+        <th>金额</th>
+        <th class="time-text">时间</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="list"></tbody>
+  </table>
+</div>
+
+<script>
+let records = [];
+let currentDateKey = '';
+let normalRent = 550;
+let normalKm = 0;
+let normalOilPrice = 1.1;
+let isHoliday = false;
+let expFolded = true;
+
+function toggleExp(){
+  const content = document.getElementById('expContent');
+  const btn = document.getElementById('foldExpBtn');
+  expFolded = !expFolded;
+  if(expFolded){
+    content.classList.add('hidden');
+    btn.textContent = '展开';
+  }else{
+    content.classList.remove('hidden');
+    btn.textContent = '折叠';
+  }
+}
+
+function formatShowDay(dStr){
+  const d=new Date(dStr);
+  const y=String(d.getFullYear()).slice(-2);
+  const m=d.getMonth()+1;
+  const dy=d.getDate();
+  return `${y}年${m}月${dy}日`;
+}
+
+function formatTimeOnly(ts){
+  if(!ts) return '';
+  const d=new Date(ts);
+  const h=String(d.getHours()).padStart(2,'0');
+  const mi=String(d.getMinutes()).padStart(2,'0');
+  return `${h}:${mi}`;
+}
+
+function setHoliday(){
+  if(isHoliday) return;
+  normalRent = parseFloat(document.getElementById('rent').value)||0;
+  normalKm = parseFloat(document.getElementById('km').value)||0;
+  normalOilPrice = parseFloat(document.getElementById('oilPrice').value)||0;
+  document.getElementById('rent').value = 0;
+  document.getElementById('km').value = 0;
+  document.getElementById('oilPrice').value = 0;
+  isHoliday = true;
+  saveDayData();
+  calc();
+}
+
+function cancelHoliday(){
+  if(!isHoliday) return;
+  document.getElementById('rent').value = normalRent;
+  document.getElementById('km').value = normalKm;
+  document.getElementById('oilPrice').value = normalOilPrice;
+  isHoliday = false;
+  saveDayData();
+  calc();
+}
+
+function loadDayData(dateKey){
+  currentDateKey = dateKey;
+  const storeKey = `taxiDay_${dateKey}`;
+  const saved = localStorage.getItem(storeKey);
+  let dayData = {records:[], rent:550, km:0, oilPrice:1.1, normalRent:550, normalKm:0, normalOilPrice:1.1, isHoliday:false};
+  if(saved){
+    try{ dayData = JSON.parse(saved); }catch(e){}
+  }
+  records = Array.isArray(dayData.records) ? dayData.records : [];
+  normalRent = dayData.normalRent ?? 550;
+  normalKm = dayData.normalKm ?? 0;
+  normalOilPrice = dayData.normalOilPrice ?? 1.1;
+  isHoliday = dayData.isHoliday ?? false;
+
+  if(isHoliday){
+    document.getElementById('rent').value = 0;
+    document.getElementById('km').value = 0;
+    document.getElementById('oilPrice').value = 0;
+  }else{
+    document.getElementById('rent').value = normalRent;
+    document.getElementById('km').value = normalKm;
+    document.getElementById('oilPrice').value = normalOilPrice;
+  }
+  document.getElementById('showDay').textContent = formatShowDay(dateKey);
+  calc();
+  renderList();
+}
+
+function saveDayData(){
+  if(!currentDateKey) return;
+  const storeKey = `taxiDay_${currentDateKey}`;
+  const dayData = {
+    records,
+    rent: parseFloat(document.getElementById('rent').value)||0,
+    km: parseFloat(document.getElementById('km').value)||0,
+    oilPrice: parseFloat(document.getElementById('oilPrice').value)||0,
+    normalRent,normalKm,normalOilPrice,isHoliday
+  };
+  try{ localStorage.setItem(storeKey, JSON.stringify(dayData)); }catch(e){}
+}
+
+function bindInputs(){
+  ['rent','km','oilPrice'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.addEventListener('input',()=>{
+      if(!isHoliday){
+        normalRent = parseFloat(document.getElementById('rent').value)||0;
+        normalKm = parseFloat(document.getElementById('km').value)||0;
+        normalOilPrice = parseFloat(document.getElementById('oilPrice').value)||0;
+      }
+      saveDayData();
+      calc();
+    });
+  });
+  document.getElementById('datePicker').addEventListener('change',e=>loadDayData(e.target.value));
+}
+
+function addRecord(){
+  const source=document.getElementById('source').value;
+  const type=document.getElementById('type').value;
+  const amt=parseInt(document.getElementById('amount').value);
+  if(isNaN(amt)||amt<=0){ alert('输入有效整数金额'); return; }
+  records.push({source,type,amount:amt,time:Date.now()});
+  saveDayData();
+  calc();
+  renderList();
+  document.getElementById('amount').value='';
+}
+
+function calc(){
+  const ePay=records.filter(r=>r.type==='电子支付').reduce((s,i)=>s+i.amount,0);
+  const hkd=records.filter(r=>r.type==='港币现金').reduce((s,i)=>s+i.amount,0);
+  const mop=records.filter(r=>r.type==='葡币').reduce((s,i)=>s+i.amount,0);
+  const cny=records.filter(r=>r.type==='人民币').reduce((s,i)=>s+i.amount,0);
+  const total=ePay+hkd+mop+cny;
+
+  const rent=parseFloat(document.getElementById('rent').value)||0;
+  const km=parseFloat(document.getElementById('km').value)||0;
+  const oilP=parseFloat(document.getElementById('oilPrice').value)||0;
+  const oil=Math.round(km*oilP);
+  const totalCost=rent+oil;
+  const profit=total-totalCost;
+
+  document.getElementById('ePay').textContent=ePay;
+  document.getElementById('hkd').textContent=hkd;
+  document.getElementById('mop').textContent=mop;
+  document.getElementById('cny').textContent=cny;
+  document.getElementById('totalIncome').textContent=total;
+  document.getElementById('rentShow').textContent=Math.round(rent);
+  document.getElementById('oilCost').textContent=oil;
+  document.getElementById('totalCost').textContent=totalCost;
+
+  const pTd=document.getElementById('profit');
+  pTd.textContent=profit;
+  pTd.className=profit>=0?'positive':'negative';
+}
+
+function renderList(){
+  const wrap=document.getElementById('list');
+  wrap.innerHTML='';
+  if(records.length===0){
+    wrap.innerHTML='<tr><td colspan="6" class="type-cell">暂无收款记录</td>';
+    return;
+  }
+  records.forEach((item,idx)=>{
+    const tr=document.createElement('tr');
+    const timeStr=formatTimeOnly(item.time);
+    tr.innerHTML=`
+      <td class="type-cell">${idx+1}</td>
+      <td class="type-cell">${item.source}</td>
+      <td class="type-cell">${item.type}</td>
+      <td>${item.amount}</td>
+      <td class="time-text">${timeStr}</td>
+      <td></td>
+    `;
+    const btn=document.createElement('button');
+    btn.className='operate';
+    btn.textContent='删除';
+    btn.addEventListener('click',()=>{
+      records.splice(idx,1);
+      saveDayData();
+      calc();
+      renderList();
+    });
+    tr.lastElementChild.appendChild(btn);
+    wrap.appendChild(tr);
+  });
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('datePicker').value = today;
+  loadDayData(today);
+  bindInputs();
+
+  // 注册 Service Worker
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.warn('SW registration failed:', err));
+  }
+});
+</script>
+</body>
+</html>
