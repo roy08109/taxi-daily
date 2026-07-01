@@ -103,7 +103,7 @@ th{background:#f0f0f0;text-align:left;}
   <div class="exp-content hidden" id="expContent">
     <div class="exp-row">
       <label>日租金(葡币)：</label>
-      <input type="number" id="rent" value="550">
+      <input type="number" id="rent" value="0">
     </div>
     <div class="exp-row">
       <label>行驶公里：</label>
@@ -111,7 +111,7 @@ th{background:#f0f0f0;text-align:left;}
     </div>
     <div class="exp-row">
       <label>油费单价：</label>
-      <input type="number" id="oilPrice" value="1.1">
+      <input type="number" id="oilPrice" value="0">
     </div>
     <div class="exp-btn-row">
       <button class="operate holiday" onclick="setHoliday()">放假</button>
@@ -129,7 +129,7 @@ th{background:#f0f0f0;text-align:left;}
     <tr><td class="type-cell">葡币</td><td id="mop">0</td></tr>
     <tr><td class="type-cell">人民币</td><td id="cny">0</td></tr>
     <tr><td class="type-cell"><strong>总收入</strong></td><td id="totalIncome">0</td></tr>
-    <tr><td class="type-cell">租金支出</td><td id="rentShow">550</td></tr>
+    <tr><td class="type-cell">租金支出</td><td id="rentShow">0</td></tr>
     <tr><td class="type-cell">油费</td><td id="oilCost">0</td></tr>
     <tr><td class="type-cell"><strong>总支出</strong></td><td id="totalCost">550</td></tr>
     <tr>
@@ -162,7 +162,7 @@ let currentDateKey = '';
 let normalRent = 550;
 let normalKm = 0;
 let normalOilPrice = 1.1;
-let isHoliday = false;
+let isHoliday = true;
 let expFolded = true;
 
 function toggleExp(){
@@ -221,7 +221,7 @@ function loadDayData(dateKey){
   currentDateKey = dateKey;
   const storeKey = `taxiDay_${dateKey}`;
   const saved = localStorage.getItem(storeKey);
-  let dayData = {records:[], rent:550, km:0, oilPrice:1.1, normalRent:550, normalKm:0, normalOilPrice:1.1, isHoliday:false};
+  let dayData = {records:[], rent:0, km:0, oilPrice:0, normalRent:550, normalKm:0, normalOilPrice:1.1, isHoliday:true};
   if(saved){
     try{ dayData = JSON.parse(saved); }catch(e){}
   }
