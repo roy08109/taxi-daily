@@ -480,10 +480,19 @@ window.addEventListener('DOMContentLoaded',()=>{
   loadDayData(today);
   bindInputs();
 
-  // 注册 Service Worker
+  // 注册 Service Worker（updateViaCache:none 防止浏览器缓存 SW 文件）
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('SW registered:', reg.scope))
+    navigator.serviceWorker.register('./sw.js', {updateViaCache:'none'})
+      .then(reg => {
+        console.log('SW registered:', reg.scope);
+        // 检测到新 SW 时自动刷新页面
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if(refreshing) return;
+          refreshing = true;
+          window.location.reload();
+        });
+      })
       .catch(err => console.warn('SW registration failed:', err));
   }
 });

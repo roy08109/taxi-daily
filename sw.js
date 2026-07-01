@@ -1,5 +1,5 @@
 // Service Worker - Cache First 策略
-const CACHE_NAME = 'taxi-book-v2';
+const CACHE_NAME = 'taxi-book-v3';
 const ASSETS = [
   './',
   './index.html',
