@@ -51,8 +51,9 @@ th{background:var(--th-bg);text-align:left;}
 .operate{background:var(--op-bg);color:#fff;border:none;border-radius:4px;cursor:pointer;width:auto;margin:0 2px;padding:5px 8px;}
 .holiday{background:#ff9800;}
 .normal{background:#2ecc71;}
-.day-bar{display:flex;align-items:center;gap:10px;margin:8px 0 15px;font-size:1.1em;font-weight:bold;}
-.day-bar span:first-child{font-size:.8em;}
+.day-bar{display:flex;align-items:center;gap:8px;margin:8px 0 15px;font-size:1.1em;font-weight:bold;white-space:nowrap;}
+.day-bar span{flex-shrink:0;}
+.day-bar input[type=date]{flex-shrink:0;min-width:0;width:120px;}
 #settingsBtn{background:var(--card-bg);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-size:.9em;padding:4px 12px;margin-left:auto;color:var(--text);line-height:1.5;box-shadow:0 1px 3px rgba(0,0,0,.1);transition:all .2s;white-space:nowrap;}
 #settingsBtn:hover{box-shadow:0 2px 6px rgba(0,0,0,.15);}
 #monthBtn{background:var(--op-bg);color:#fff;border:none;border-radius:20px;cursor:pointer;font-size:.9em;padding:4px 14px;line-height:1.5;white-space:nowrap;}
@@ -195,6 +196,7 @@ th{background:var(--th-bg);text-align:left;}
       <span class="setting-label">油费单价</span>
       <input class="setting-input" type="number" id="settingOil" value="1.1" step="0.1" onchange="saveSettings()">
     </div>
+    <button class="modal-close" style="margin-bottom:6px;" onclick="copyExcelData()">📋 复制数据（贴到Excel）</button>
     <button class="modal-close" onclick="closeSettings()">关闭</button>
   </div>
 </div>
@@ -250,6 +252,25 @@ function saveSettings(){
   }
   saveDayData();
   calc();
+}
+
+function copyExcelData(){
+  const dt = currentDateKey;
+  const key = 'taxiDay_'+dt;
+  let dd;
+  try{ dd = JSON.parse(localStorage.getItem(key)); }catch(e){ dd = null; }
+  const rent = dd ? (dd.rent||0) : 0;
+  const km = dd ? (dd.km||0) : 0;
+  const recs = dd && Array.isArray(dd.records) ? dd.records : [];
+  const totalIncome = recs.reduce((s,r)=>s+r.amount,0);
+  const ePay = recs.filter(r=>r.type==='电子支付').reduce((s,r)=>s+r.amount,0);
+  const text = dt + '\t' + rent + '\t' + km + '\t' + totalIncome + '\t' + ePay;
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn = document.querySelector('#settingsOverlay .modal-close:first-of-type');
+    const orig = btn.textContent;
+    btn.textContent = '✅ 已复制！';
+    setTimeout(()=>btn.textContent=orig, 2000);
+  }).catch(()=>alert('复制失败，请手动复制'));
 }
 
 function formatTimeOnly(ts){
