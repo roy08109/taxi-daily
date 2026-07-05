@@ -84,7 +84,6 @@ th{background:var(--th-bg);text-align:left;}
 <div class="day-bar">
   <span>选择日期：</span>
   <input type="date" id="datePicker">
-  <button id="monthBtn" onclick="showMonthSummary()">📊 月结</button>
   <button id="settingsBtn" onclick="openSettings()">⚙ 设置</button>
 </div>
 
@@ -196,7 +195,10 @@ th{background:var(--th-bg);text-align:left;}
       <span class="setting-label">油费单价</span>
       <input class="setting-input" type="number" id="settingOil" value="1.1" step="0.1" onchange="saveSettings()">
     </div>
-    <button class="modal-close" style="margin-bottom:6px;" onclick="copyExcelData()">📋 复制数据（贴到Excel）</button>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:14px;">
+      <button class="modal-close" style="margin:0;flex:1;" onclick="showMonthSummary();closeSettings()">月結</button>
+      <button class="modal-close" style="margin:0;flex:1;" onclick="copyExcelData()">复制数据</button>
+    </div>
     <button class="modal-close" onclick="closeSettings()">关闭</button>
   </div>
 </div>
