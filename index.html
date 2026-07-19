@@ -459,39 +459,51 @@ function showMonthSummary(){
     const dk = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const key = `taxiDay_${dk}`;
     const saved = localStorage.getItem(key);
-    if(!saved) continue;
-    let dd;
-    try{ dd = JSON.parse(saved); }catch(e){ continue; }
-    const recs = Array.isArray(dd.records) ? dd.records : [];
-    if(recs.length === 0 && !dd.isHoliday && !dd.rent && !dd.km) continue;
+
+    // 默认值：无数据视为放假
+    let dd_recs = [];
+    let dd_rent = 0, dd_km = 0, dd_oilPrice = 0, dd_isHoliday = true;
+
+    if(saved){
+      try{
+        const dd = JSON.parse(saved);
+        dd_recs = Array.isArray(dd.records) ? dd.records : [];
+        dd_rent = dd.rent || 0;
+        dd_km = dd.km || 0;
+        dd_oilPrice = dd.oilPrice || 0;
+        dd_isHoliday = dd.isHoliday ?? true;
+      }catch(e){ /* 解析失败，沿用默认放假 */ }
+    }
+
     dayCount++;
-    if(dd.isHoliday) holidayCount++;
-    recordCount += recs.length;
-    recs.forEach(r => {
+    if(dd_isHoliday) holidayCount++;
+    recordCount += dd_recs.length;
+
+    dd_recs.forEach(r => {
       if(r.type === '电子支付') totalEPay += r.amount;
       else if(r.type === '港币现金') totalHKD += r.amount;
       else if(r.type === '葡币') totalMOP += r.amount;
       else if(r.type === '人民币') totalCNY += r.amount;
     });
-    totalRent += dd.rent || 0;
-    totalKm += dd.km || 0;
-    totalOil += Math.round((dd.km||0) * (dd.oilPrice||0));
+    totalRent += dd_rent;
+    totalKm += dd_km;
+    totalOil += Math.round(dd_km * dd_oilPrice);
 
     // 累加到对应时段
     const pIdx = day<=10 ? 0 : day<=20 ? 1 : 2;
     const p = periods[pIdx];
-    recs.forEach(r => {
+    dd_recs.forEach(r => {
       if(r.type === '电子支付') p.EPay += r.amount;
       else if(r.type === '港币现金') p.HKD += r.amount;
       else if(r.type === '葡币') p.MOP += r.amount;
       else if(r.type === '人民币') p.CNY += r.amount;
     });
-    p.rent += dd.rent || 0;
-    p.km += dd.km || 0;
-    p.oil += Math.round((dd.km||0) * (dd.oilPrice||0));
+    p.rent += dd_rent;
+    p.km += dd_km;
+    p.oil += Math.round(dd_km * dd_oilPrice);
     p.days++;
-    if(dd.isHoliday) p.holi++;
-    p.recs += recs.length;
+    if(dd_isHoliday) p.holi++;
+    p.recs += dd_recs.length;
   }
 
   const totalIncome = totalEPay + totalHKD + totalMOP + totalCNY;
